@@ -16,8 +16,8 @@ public:
     //Mode step
     AP_Float get_step_dist() const {return _step_dist;}
     AP_Int32 get_waiting_time() const {return _waiting_time;}
-    void set_step_dist(float dist) { _step_dist.set(dist); }
-    void set_waiting_time(uint32_t time) { _waiting_time.set(time); }
+    void set_step_dist(float dist) { _step_dist.set_and_save(dist); }
+    void set_waiting_time(uint32_t time) { _waiting_time.set_and_save(time); }
 private:
     // Put your parameter variable definitions here
     AP_Int8 _int8;
