@@ -222,7 +222,12 @@ void Copter::tuning(const RC_Channel *tuning_ch, int8_t tuning_param, float tuni
     case TUNING_STEP_DISTANCE:
         g2.user_parameters.set_step_dist(tuning_value);
         break;
-#endif        
+    
+    case TUNING_WAITING_TIME:
+        g2.user_parameters.set_waiting_time(tuning_value);
+        break;
+#endif    
+
     }
 }
 

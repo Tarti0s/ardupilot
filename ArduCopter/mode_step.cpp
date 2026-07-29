@@ -19,6 +19,7 @@ bool ModeStep::init(bool ignore_checks)
     move_start_ms = 0;
 
     step_m = g2.user_parameters.get_step_dist();
+    waiting_time_ms = g2.user_parameters.get_waiting_time();
 
     current_loc_vec = pos_control->get_pos_estimate_NED_m();
     target_loc_vec.zero();
@@ -48,6 +49,9 @@ void ModeStep::run()
 
     current_loc_vec = pos_control->get_pos_estimate_NED_m();
     update_simple_mode();
+    step_m = g2.user_parameters.get_step_dist();
+    waiting_time_ms = g2.user_parameters.get_waiting_time();
+    printf("step_m = %f, waiting_time_ms = %d \n", step_m, waiting_time_ms);
 
     //set motors to full range
     motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
@@ -78,17 +82,11 @@ void ModeStep::waiting()
     {
         if(fabsf(pilot_roll) >= 0.5f || fabsf(pilot_pitch) >= 0.5f)//on vérifie les joysticks
         {
-            //if(pilot_roll > 0.25){move_x = step_m;} 
-            //else if(pilot_roll < -0.25){move_x = -step_m;} 
+            if(pilot_roll > 0.25){move_x = step_m;} //direction nord
+            else if(pilot_roll < -0.25){move_x = -step_m;} //direction sud
 
-            //if(pilot_pitch > 0.25){move_y = step_m;} 
-            //else if(pilot_pitch < -0.25){move_y = -step_m;}
-
-            if(pilot_roll > 0.25){move_y = step_m;} 
-            else if(pilot_roll < -0.25){move_y = -step_m;} 
-
-            if(pilot_pitch > 0.25){move_x = -step_m;} 
-            else if(pilot_pitch < -0.25){move_x = step_m;} 
+            if(pilot_pitch > 0.25){move_y = step_m;} //direction est
+            else if(pilot_pitch < -0.25){move_y = -step_m;} //direction ouest
  
             received_cmd_xy = true;
             can_receive_cmd_xy = false;
@@ -96,7 +94,7 @@ void ModeStep::waiting()
             start_loc_vec = current_loc_vec;//enregistre la position au moment ou on reçoit la commande de déplacement
         }
     }
-    else if(is_zero(pilot_roll) && is_zero(pilot_pitch)){can_receive_cmd_xy = true;}//autorise le nouvel envoi d'une commande uniquement si les joysticks sont revenus à zéro
+    else if(fabsf(pilot_roll) < 0.15f && fabsf(pilot_pitch) < 0.15f){can_receive_cmd_xy = true;}//autorise le nouvel envoi d'une commande uniquement si les joysticks sont revenus à zéro
 
     if(can_receive_cmd_z)//si le drone est prêt à recevoir une commande de déplacement sur l'axe vertical
     {
@@ -110,7 +108,7 @@ void ModeStep::waiting()
             start_loc_vec = current_loc_vec;//enregistre la position au moment ou on reçoit la commande de déplacement
         }
     }
-    else if(is_zero(pilot_throttle)){can_receive_cmd_z = true;}//autorise le nouvel envoi d'une commande uniquement si le joystick est revenu à zéro
+    else if(fabsf(pilot_throttle) < 0.15f){can_receive_cmd_z = true;}//autorise le nouvel envoi d'une commande uniquement si le joystick est revenu à zéro
 }
 
 void ModeStep::moving_xy()
@@ -139,7 +137,7 @@ void ModeStep::moving_xy()
         xy = 0;
         move_start_ms = 0;
     }
-    else if(AP_HAL::millis() - move_start_ms >= MOVE_TIMEOUT_MS)
+    else if(AP_HAL::millis() - move_start_ms >= waiting_time_ms)
     {
         printf("Destination not reached xy\n");
         received_cmd_xy = false;
@@ -175,7 +173,7 @@ void ModeStep::moving_z()
         z = 0;
         move_start_ms = 0;
     }
-    else if(AP_HAL::millis() - move_start_ms >= MOVE_TIMEOUT_MS)
+    else if(AP_HAL::millis() - move_start_ms >= waiting_time_ms)
     {
         printf("Destination not reached z\n");
         received_cmd_z = false;
@@ -190,10 +188,10 @@ void ModeStep::moving()
 {
     //calcul du décalage entre la position du drone et celle voulu
     if (Step_state == SubMode::Waiting)
-    //{pos_control->input_pos_NED_m(stop_loc_vec,0.0f,copter.wp_nav->get_terrain_margin_m());}//Objectif : sur-place
     {copter.mode_stabilize.run();}//Objectif : sur-place
     else 
     {pos_control->input_pos_NED_m(target_loc_vec,0.0f,copter.wp_nav->get_terrain_margin_m());}//Objectif : se déplacer vers la position voulu
+    
     //calcul de comment aller à la position voulu
     pos_control->NE_update_controller();
     pos_control->D_update_controller();

@@ -17,6 +17,12 @@ const AP_Param::GroupInfo UserParameters::var_info[] = {
     // @Units: m
     AP_GROUPINFO("_STEP_DIST", 3, UserParameters, _step_dist,1),
     
+    // @Param: USR_WAITING_TIME
+    // @DisplayName: Waiting time
+    // @Description: Temps d'attente avant de pouvoir envoyer une nouvelle commande au drone
+    // @Units: ms
+    AP_GROUPINFO("_WAITING_TIME", 4, UserParameters, _waiting_time, 3000),
+    
     AP_GROUPEND
 };
 
