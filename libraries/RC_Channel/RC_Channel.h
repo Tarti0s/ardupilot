@@ -312,7 +312,7 @@ public:
         // if you add something here, make sure to update the documentation of the parameter in RC_Channel.cpp!
         // also, if you add an option >255, you will need to fix duplicate_options_exist
 
-        // options 150-199 continue user rc switch options
+        // options 149-199 continue user rc switch options
         STEP =                149,  // STEP mode
         CRUISE =             150,  // CRUISE mode
         TURTLE =             151,  // Turtle mode - flip over after crash

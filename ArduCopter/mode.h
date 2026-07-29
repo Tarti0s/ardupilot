@@ -2215,4 +2215,9 @@ protected:
 
 private:
 
+    // équivalent de channel_throttle->norm_input_dz(), mais centré sur le
+    // milieu de la course du manche plutôt que sur le trim (le manche de
+    // throttle n'étant pas rappelé au centre comme roll/pitch)
+    float throttle_norm_input_dz() const;
+
 };

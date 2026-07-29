@@ -69,12 +69,34 @@ void ModeStep::run()
     else{Step_state = SubMode::Waiting;}
 }
 
+float ModeStep::throttle_norm_input_dz() const
+{
+    const int16_t radio_min = channel_throttle->get_radio_min();
+    const int16_t radio_max = channel_throttle->get_radio_max();
+    const int16_t radio_in = channel_throttle->get_radio_in();
+    const int16_t dead_zone = channel_throttle->get_dead_zone();
+    const int16_t mid = (radio_min + radio_max) / 2;
+    const int16_t dz_min = mid - dead_zone;
+    const int16_t dz_max = mid + dead_zone;
+    const int16_t reverse_mul = channel_throttle->get_reverse() ? -1 : 1;
+
+    float throttle_norm;
+    if (radio_in < dz_min && dz_min > radio_min) {
+        throttle_norm = reverse_mul * (float)(radio_in - dz_min) / (float)(dz_min - radio_min);
+    } else if (radio_in > dz_max && radio_max > dz_max) {
+        throttle_norm = reverse_mul * (float)(radio_in - dz_max) / (float)(radio_max - dz_max);
+    } else {
+        throttle_norm = 0;
+    }
+    return constrain_float(throttle_norm, -1.0f, 1.0f);
+}
+
 void ModeStep::waiting()
 {
     //enregistre l'état des joystics de la RC
     float pilot_roll = channel_roll->norm_input_dz(); //joystick gauche/droite
     float pilot_pitch = channel_pitch->norm_input_dz(); //joystick avant/arrière
-    float pilot_throttle = channel_throttle->norm_input_dz(); //joystick haut/bas
+    float pilot_throttle = throttle_norm_input_dz(); //joystick haut/bas
 
     moving();
 
