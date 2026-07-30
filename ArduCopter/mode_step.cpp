@@ -51,8 +51,7 @@ void ModeStep::run()
     update_simple_mode();
     step_m = g2.user_parameters.get_step_dist();
     waiting_time_ms = g2.user_parameters.get_waiting_time();
-    printf("step_m = %f, waiting_time_ms = %d \n", step_m, waiting_time_ms);
-
+    
     //set motors to full range
     motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
 
@@ -104,11 +103,19 @@ void ModeStep::waiting()
     {
         if(fabsf(pilot_roll) >= 0.5f || fabsf(pilot_pitch) >= 0.5f)//on vérifie les joysticks
         {
-            if(pilot_roll > 0.25){move_x = step_m;} //direction nord
-            else if(pilot_roll < -0.25){move_x = -step_m;} //direction sud
+            float forward = 0.0f;
+            float right = 0.0f;
+            float yaw = ahrs.get_yaw();
+            printf("Yaw : %f Step_m : %f waiting_time_ms : %d \n", yaw, step_m, waiting_time_ms);
 
-            if(pilot_pitch > 0.25){move_y = step_m;} //direction est
-            else if(pilot_pitch < -0.25){move_y = -step_m;} //direction ouest
+            if(pilot_roll > 0.25){right = step_m;} //droite
+            else if(pilot_roll < -0.25){right = -step_m;} //gauche
+
+            if(pilot_pitch > 0.25){forward = -step_m;} //avant
+            else if(pilot_pitch < -0.25){forward = +step_m;} //arrière
+
+            move_x = forward * cosf(yaw) - right * sinf(yaw); // Nord-Sud
+            move_y = forward * sinf(yaw) + right * cosf(yaw); // Est-Ouest
  
             received_cmd_xy = true;
             can_receive_cmd_xy = false;
@@ -140,6 +147,8 @@ void ModeStep::moving_xy()
         target_loc_vec.x = start_loc_vec.x + move_x;
         target_loc_vec.y = start_loc_vec.y + move_y;
         target_loc_vec.z = start_loc_vec.z;
+        printf("current_loc_vec : x = %f, y = %f, z = %f \n", current_loc_vec.x, current_loc_vec.y, current_loc_vec.z);
+        printf("target_loc_vec : x = %f, y = %f, z = %f \n", target_loc_vec.x, target_loc_vec.y, target_loc_vec.z);
         move_x = 0.0f;
         move_y = 0.0f;
         xy++;
@@ -147,8 +156,8 @@ void ModeStep::moving_xy()
     }
     
     moving();
-    printf("current_loc_vec : x = %f, y = %f, z = %f \n", current_loc_vec.x, current_loc_vec.y, current_loc_vec.z);
-    printf("target_loc_vec : x = %f, y = %f, z = %f \n", target_loc_vec.x, target_loc_vec.y, target_loc_vec.z);
+    //printf("current_loc_vec : x = %f, y = %f, z = %f \n", current_loc_vec.x, current_loc_vec.y, current_loc_vec.z);
+    //printf("target_loc_vec : x = %f, y = %f, z = %f \n", target_loc_vec.x, target_loc_vec.y, target_loc_vec.z);
 
     if(fabsf(current_loc_vec.x - target_loc_vec.x) < 0.01 && fabsf(current_loc_vec.y - target_loc_vec.y) < 0.02)
     {
