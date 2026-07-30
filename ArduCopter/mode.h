@@ -2171,11 +2171,8 @@ public:
     void moving_xy();
     void moving_z();
     void moving();
+    float throttle_norm_input_dz() const; //centre le joystick de gauche (par défaut reste en position basse)
 
-    bool requires_position() const override { return true; }
-    bool has_manual_throttle() const override { return true; }
-    bool is_autopilot() const override { return false; }
-    bool allows_arming(AP_Arming::Method method) const override { return true; };
 
     Vector3p target_loc_vec; //où on veut aller
     Vector3p current_loc_vec; //position actuelle
@@ -2189,17 +2186,23 @@ public:
 
     uint32_t move_start_ms; //instant (ms) auquel la manoeuvre en cours a débuté
     uint32_t waiting_time_ms; //délai max (ms) avant de débloquer une manoeuvre bloquée
-    float step_m;
+    float step_m; //distance (m) du pas 
 
     float move_x;
     float move_y;
     float move_z;
 
-    int w;
     int xy;
     int z;
 
-    enum class SubMode {
+    //non utilisé
+    bool requires_position() const override { return true; }
+    bool has_manual_throttle() const override { return true; }
+    bool is_autopilot() const override { return false; }
+    bool allows_arming(AP_Arming::Method method) const override { return true; };
+
+    enum class SubMode 
+    {
         Waiting, //en attente
         Moving_xy, //prêt à se déplacer sur le plan horizontal
         Moving_z, //prêt à se déplacer sur l'axe vertical
@@ -2211,13 +2214,5 @@ protected:
 
     const char *name() const override { return "STEP"; }
     const char *name4() const override { return "STEP"; }
-
-
-private:
-
-    // équivalent de channel_throttle->norm_input_dz(), mais centré sur le
-    // milieu de la course du manche plutôt que sur le trim (le manche de
-    // throttle n'étant pas rappelé au centre comme roll/pitch)
-    float throttle_norm_input_dz() const;
 
 };

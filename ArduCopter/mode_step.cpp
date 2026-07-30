@@ -2,12 +2,10 @@
 
 bool ModeStep::init(bool ignore_checks)
 {
-
     can_receive_cmd_xy = false;
     can_receive_cmd_z = false; 
     received_cmd_xy = false;
     received_cmd_z = false;
-    gcs().send_text(MAV_SEVERITY_NOTICE,"Mode STEP");
 
     move_x = 0.0f;
     move_y = 0.0f;
@@ -18,9 +16,11 @@ bool ModeStep::init(bool ignore_checks)
 
     move_start_ms = 0;
 
+    //initialise la distance du pas et le temps d'attente avant une nouvelle commande
     step_m = g2.user_parameters.get_step_dist();
     waiting_time_ms = g2.user_parameters.get_waiting_time();
 
+    // initialise les positions 
     current_loc_vec = pos_control->get_pos_estimate_NED_m();
     target_loc_vec.zero();
     stop_loc_vec = pos_control->get_pos_estimate_NED_m();
@@ -45,10 +45,11 @@ bool ModeStep::init(bool ignore_checks)
 
 void ModeStep::run()
 {
-    // apply simple mode transform to pilot inputs
-
+    
     current_loc_vec = pos_control->get_pos_estimate_NED_m();
     update_simple_mode();
+
+    //vérifie si les valeurs n'ont pas été changé par l'utilisateur
     step_m = g2.user_parameters.get_step_dist();
     waiting_time_ms = g2.user_parameters.get_waiting_time();
     
@@ -68,8 +69,9 @@ void ModeStep::run()
     else{Step_state = SubMode::Waiting;}
 }
 
-float ModeStep::throttle_norm_input_dz() const
+float ModeStep::throttle_norm_input_dz() const //centre le joystick de gauche (par défaut reste en position basse)
 {
+    //récupère les informations de la RC
     const int16_t radio_min = channel_throttle->get_radio_min();
     const int16_t radio_max = channel_throttle->get_radio_max();
     const int16_t radio_in = channel_throttle->get_radio_in();
@@ -80,6 +82,7 @@ float ModeStep::throttle_norm_input_dz() const
     const int16_t reverse_mul = channel_throttle->get_reverse() ? -1 : 1;
 
     float throttle_norm;
+    //Calcule et regarde l'état du joystick de gauche par rapport à son centre et retourne une valeur entre -1 et 1
     if (radio_in < dz_min && dz_min > radio_min) {
         throttle_norm = reverse_mul * (float)(radio_in - dz_min) / (float)(dz_min - radio_min);
     } else if (radio_in > dz_max && radio_max > dz_max) {
@@ -101,12 +104,11 @@ void ModeStep::waiting()
 
     if(can_receive_cmd_xy)//si le drone est prêt à recevoir une commande de déplacement sur le plan horizontal
     {
-        if(fabsf(pilot_roll) >= 0.5f || fabsf(pilot_pitch) >= 0.5f)//on vérifie les joysticks
+        if(fabsf(pilot_roll) >= 0.5f || fabsf(pilot_pitch) >= 0.5f)//on vérifie le joystick
         {
             float forward = 0.0f;
             float right = 0.0f;
             float yaw = ahrs.get_yaw();
-            printf("Yaw : %f Step_m : %f waiting_time_ms : %d \n", yaw, step_m, waiting_time_ms);
 
             if(pilot_roll > 0.25){right = step_m;} //droite
             else if(pilot_roll < -0.25){right = -step_m;} //gauche
@@ -114,41 +116,42 @@ void ModeStep::waiting()
             if(pilot_pitch > 0.25){forward = -step_m;} //avant
             else if(pilot_pitch < -0.25){forward = +step_m;} //arrière
 
-            move_x = forward * cosf(yaw) - right * sinf(yaw); // Nord-Sud
-            move_y = forward * sinf(yaw) + right * cosf(yaw); // Est-Ouest
- 
+            //Calcule la direction dans laquelle le drone doit aller selon son orientation
+            move_x = forward * cosf(yaw) - right * sinf(yaw); 
+            move_y = forward * sinf(yaw) + right * cosf(yaw);
+            
+            //fait passer le drone en sous-mode "moving_xy" et empêche une nouvelle commande
             received_cmd_xy = true;
             can_receive_cmd_xy = false;
             can_receive_cmd_z = false;
             start_loc_vec = current_loc_vec;//enregistre la position au moment ou on reçoit la commande de déplacement
         }
     }
-    else if(fabsf(pilot_roll) < 0.15f && fabsf(pilot_pitch) < 0.15f){can_receive_cmd_xy = true;}//autorise le nouvel envoi d'une commande uniquement si les joysticks sont revenus à zéro
+    else if(fabsf(pilot_roll) < 0.15f && fabsf(pilot_pitch) < 0.15f){can_receive_cmd_xy = true;}//autorise le nouvel envoi d'une commande uniquement si le joystick est recentré
 
     if(can_receive_cmd_z)//si le drone est prêt à recevoir une commande de déplacement sur l'axe vertical
     {
-        if(fabsf(pilot_throttle) >= 0.5f)
+        if(fabsf(pilot_throttle) >= 0.5f)//on vérifie le joystick
         {
-            if(pilot_throttle > 0.0f){ move_z = -step_m;} //Axe z inversé
-            else{move_z = step_m;}
+            if(pilot_throttle > 0.0f){ move_z = -step_m;} //Monte, axe z inversé
+            else{move_z = step_m;} //Descend
 
+            //fait passer le drone en sous-mode "moving_z" et empêche une nouvelle commande
             received_cmd_z = true;
             can_receive_cmd_z = false;
             start_loc_vec = current_loc_vec;//enregistre la position au moment ou on reçoit la commande de déplacement
         }
     }
-    else if(fabsf(pilot_throttle) < 0.15f){can_receive_cmd_z = true;}//autorise le nouvel envoi d'une commande uniquement si le joystick est revenu à zéro
+    else if(fabsf(pilot_throttle) < 0.15f){can_receive_cmd_z = true;}//autorise le nouvel envoi d'une commande uniquement si le joystick est recentré
 }
 
 void ModeStep::moving_xy()
 {
-    if (xy == 0) 
+    if (xy == 0) //Calcule une fois la cible à atteindre et lance le timer
     {
         target_loc_vec.x = start_loc_vec.x + move_x;
         target_loc_vec.y = start_loc_vec.y + move_y;
         target_loc_vec.z = start_loc_vec.z;
-        printf("current_loc_vec : x = %f, y = %f, z = %f \n", current_loc_vec.x, current_loc_vec.y, current_loc_vec.z);
-        printf("target_loc_vec : x = %f, y = %f, z = %f \n", target_loc_vec.x, target_loc_vec.y, target_loc_vec.z);
         move_x = 0.0f;
         move_y = 0.0f;
         xy++;
@@ -156,24 +159,12 @@ void ModeStep::moving_xy()
     }
     
     moving();
-    //printf("current_loc_vec : x = %f, y = %f, z = %f \n", current_loc_vec.x, current_loc_vec.y, current_loc_vec.z);
-    //printf("target_loc_vec : x = %f, y = %f, z = %f \n", target_loc_vec.x, target_loc_vec.y, target_loc_vec.z);
 
-    if(fabsf(current_loc_vec.x - target_loc_vec.x) < 0.02 && fabsf(current_loc_vec.y - target_loc_vec.y) < 0.02)
+    //Si la position est atteinte ou si le drone met trop de temps à l'atteindre
+    if((fabsf(current_loc_vec.x - target_loc_vec.x) < 0.02 && fabsf(current_loc_vec.y - target_loc_vec.y) < 0.02) || (AP_HAL::millis() - move_start_ms >= waiting_time_ms))
     {
-        printf("Destination reached xy\n");
-        received_cmd_xy = false;
-        stop_loc_vec = pos_control->get_pos_estimate_NED_m();
-        printf("Stop loc : x = %f, y = %f, z = %f \n", stop_loc_vec.x, stop_loc_vec.y, stop_loc_vec.z);
-        xy = 0;
-        move_start_ms = 0;
-    }
-    else if(AP_HAL::millis() - move_start_ms >= waiting_time_ms)
-    {
-        printf("Destination not reached xy\n");
-        received_cmd_xy = false;
-        stop_loc_vec = pos_control->get_pos_estimate_NED_m();
-        printf("Stop loc : x = %f, y = %f, z = %f \n", stop_loc_vec.x, stop_loc_vec.y, stop_loc_vec.z);
+        received_cmd_xy = false; //retourne dans le sous-mode "waiting"
+        stop_loc_vec = pos_control->get_pos_estimate_NED_m(); //enregistre la position d'arrêt de la manœuvre
         xy = 0;
         move_start_ms = 0;
     }
@@ -181,37 +172,23 @@ void ModeStep::moving_xy()
 
 void ModeStep::moving_z()
 {
-    if (z == 0) 
+    if (z == 0) //Calcule une fois la cible à atteindre et lance le timer
     {
         target_loc_vec.x = start_loc_vec.x;
         target_loc_vec.y = start_loc_vec.y;
         target_loc_vec.z = start_loc_vec.z + move_z;
-        printf("current_loc_vec : x = %f, y = %f, z = %f \n", current_loc_vec.x, current_loc_vec.y, current_loc_vec.z);
-        printf("target_loc_vec : x = %f, y = %f, z = %f \n", target_loc_vec.x, target_loc_vec.y, target_loc_vec.z);
         move_z = 0.0f;
         move_start_ms = AP_HAL::millis();
         z++;
     }
 
     moving();
-    //printf("current_loc_vec : x = %f, y = %f, z = %f \n", current_loc_vec.x, current_loc_vec.y, current_loc_vec.z);
-    //printf("target_loc_vec : x = %f, y = %f, z = %f \n", target_loc_vec.x, target_loc_vec.y, target_loc_vec.z);
-    
-    if(fabsf(current_loc_vec.z - target_loc_vec.z) < 0.02)
+
+    //Si la position est atteinte ou si le drone met trop de temps à l'atteindre
+    if((fabsf(current_loc_vec.z - target_loc_vec.z) < 0.02) || (AP_HAL::millis() - move_start_ms >= waiting_time_ms))
     {
-        printf("Destination reached z\n");
-        received_cmd_z = false;
-        stop_loc_vec = pos_control->get_pos_estimate_NED_m();
-        printf("Stop loc : x = %f, y = %f, z = %f \n", stop_loc_vec.x, stop_loc_vec.y, stop_loc_vec.z);
-        z = 0;
-        move_start_ms = 0;
-    }
-    else if(AP_HAL::millis() - move_start_ms >= waiting_time_ms)
-    {
-        printf("Destination not reached z\n");
-        received_cmd_z = false;
-        stop_loc_vec = pos_control->get_pos_estimate_NED_m();
-        printf("Stop loc : x = %f, y = %f, z = %f \n", stop_loc_vec.x, stop_loc_vec.y, stop_loc_vec.z);
+        received_cmd_z = false; //retourne dans le sous-mode "waiting"
+        stop_loc_vec = pos_control->get_pos_estimate_NED_m(); //enregistre la position d'arrêt de la manœuvre
         z = 0;
         move_start_ms = 0;
     }
@@ -221,8 +198,7 @@ void ModeStep::moving()
 {
     //calcul du décalage entre la position du drone et celle voulu
     if (Step_state == SubMode::Waiting)
-    //{copter.mode_stabilize.run();}//Objectif : sur-place
-    {pos_control->input_pos_NED_m(stop_loc_vec,0.0f,copter.wp_nav->get_terrain_margin_m());}
+    {pos_control->input_pos_NED_m(stop_loc_vec,0.0f,copter.wp_nav->get_terrain_margin_m());}//Objectif : sur-place
     else 
     {pos_control->input_pos_NED_m(target_loc_vec,0.0f,copter.wp_nav->get_terrain_margin_m());}//Objectif : se déplacer vers la position voulu
     

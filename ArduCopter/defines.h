@@ -52,6 +52,7 @@ enum tuning_func {
     TUNING_POS_CONTROL_ANGLE_MAX =      59, // position controller maximum angle
     TUNING_LOITER_MAX_XY_SPEED =        60, // maximum loiter horizontal speed
     TUNING_WP_SPEED_MS =                61, // maximum speed to next waypoint in m/s
+    //Pour le mode STEP 
     TUNING_STEP_DISTANCE =              62, // distance to move in step mode
     TUNING_WAITING_TIME =               63, // time before allowing a new command to be sent to the drone
 };

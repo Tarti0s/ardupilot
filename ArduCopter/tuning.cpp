@@ -218,7 +218,7 @@ void Copter::tuning(const RC_Channel *tuning_ch, int8_t tuning_param, float tuni
         flightmode->set_speed_NE_ms(tuning_value);
         break;
 
-#if USER_PARAMS_ENABLED
+#if USER_PARAMS_ENABLED //Récupère les nouvelles valeurs sur la RC
     case TUNING_STEP_DISTANCE:
         g2.user_parameters.set_step_dist(tuning_value);
         break;
