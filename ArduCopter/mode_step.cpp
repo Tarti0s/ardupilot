@@ -159,7 +159,7 @@ void ModeStep::moving_xy()
     //printf("current_loc_vec : x = %f, y = %f, z = %f \n", current_loc_vec.x, current_loc_vec.y, current_loc_vec.z);
     //printf("target_loc_vec : x = %f, y = %f, z = %f \n", target_loc_vec.x, target_loc_vec.y, target_loc_vec.z);
 
-    if(fabsf(current_loc_vec.x - target_loc_vec.x) < 0.01 && fabsf(current_loc_vec.y - target_loc_vec.y) < 0.02)
+    if(fabsf(current_loc_vec.x - target_loc_vec.x) < 0.02 && fabsf(current_loc_vec.y - target_loc_vec.y) < 0.02)
     {
         printf("Destination reached xy\n");
         received_cmd_xy = false;
@@ -186,14 +186,16 @@ void ModeStep::moving_z()
         target_loc_vec.x = start_loc_vec.x;
         target_loc_vec.y = start_loc_vec.y;
         target_loc_vec.z = start_loc_vec.z + move_z;
+        printf("current_loc_vec : x = %f, y = %f, z = %f \n", current_loc_vec.x, current_loc_vec.y, current_loc_vec.z);
+        printf("target_loc_vec : x = %f, y = %f, z = %f \n", target_loc_vec.x, target_loc_vec.y, target_loc_vec.z);
         move_z = 0.0f;
         move_start_ms = AP_HAL::millis();
         z++;
     }
 
     moving();
-    printf("current_loc_vec : x = %f, y = %f, z = %f \n", current_loc_vec.x, current_loc_vec.y, current_loc_vec.z);
-    printf("target_loc_vec : x = %f, y = %f, z = %f \n", target_loc_vec.x, target_loc_vec.y, target_loc_vec.z);
+    //printf("current_loc_vec : x = %f, y = %f, z = %f \n", current_loc_vec.x, current_loc_vec.y, current_loc_vec.z);
+    //printf("target_loc_vec : x = %f, y = %f, z = %f \n", target_loc_vec.x, target_loc_vec.y, target_loc_vec.z);
     
     if(fabsf(current_loc_vec.z - target_loc_vec.z) < 0.02)
     {
@@ -219,7 +221,8 @@ void ModeStep::moving()
 {
     //calcul du décalage entre la position du drone et celle voulu
     if (Step_state == SubMode::Waiting)
-    {copter.mode_stabilize.run();}//Objectif : sur-place
+    //{copter.mode_stabilize.run();}//Objectif : sur-place
+    {pos_control->input_pos_NED_m(stop_loc_vec,0.0f,copter.wp_nav->get_terrain_margin_m());}
     else 
     {pos_control->input_pos_NED_m(target_loc_vec,0.0f,copter.wp_nav->get_terrain_margin_m());}//Objectif : se déplacer vers la position voulu
     
